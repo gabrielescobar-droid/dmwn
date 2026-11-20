@@ -372,6 +372,13 @@ footer{padding:48px 0 calc(140px + env(safe-area-inset-bottom,0px));text-align:c
 .extra-head .ico{color:var(--key)}
 .extra-head h2{font-weight:700;font-size:1.3rem;line-height:1.2;letter-spacing:-0.01em}
 .extra-sub{margin-top:4px;font-size:15px;color:var(--fg-subtle)}
+.tour-badge{margin-left:auto;display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;border:1px solid var(--line-strong);font-weight:500;font-size:13px;color:var(--fg-subtle)}
+.tour-badge .ico{width:14px;height:14px}
+.extra-head .tour-badge .ico{color:inherit}
+.tour.unlocked .tour-badge{border-color:var(--accent);background:var(--accent);color:var(--on-accent)}
+.tour:not(.unlocked){opacity:0.85}
+.tut-frame{margin-top:14px;border-radius:var(--radius-btn);overflow:hidden;background:var(--dm-ink);border:1px solid var(--line)}
+.tut-frame video{display:block;width:100%;aspect-ratio:16/9;object-fit:contain;background:var(--dm-ink)}
 .extra .card{margin-top:14px}
 .extras .help-strip{margin-top:12px}
 .finish{scroll-margin-top:calc(var(--header-h) + 12px)}
@@ -758,7 +765,7 @@ table.adm .muted{color:var(--fg-subtle)}
         <div class="branch" id="circle-yes" hidden>
           <p class="confirm"><svg class="ico" aria-hidden="true"><use href="#i-check"/></svg><span>You’re in. That’s the hardest step done.</span></p>
           <p id="circle-yes-next">Next: Step 0, your first lesson.</p>
-          <div class="btn-row"><button type="button" class="btn btn-primary" id="btn-go-step3" data-jump="step-3"><span>Go to Step 3: Start Step 0</span><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button></div>
+          <div class="btn-row"><button type="button" class="btn btn-primary" id="btn-go-step3" data-jump="step-3"><span>Go to Step 3: Start Step 0</span><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg></button><button type="button" class="btn btn-secondary" id="btn-go-tour" data-jump="circle-tour"><svg class="ico" aria-hidden="true"><use href="#i-play"/></svg>Watch the Circle Tutorial</button></div>
         </div>
 
         <div class="branch" id="circle-no" hidden>
@@ -846,6 +853,18 @@ table.adm .muted{color:var(--fg-subtle)}
     <div class="extras reveal" id="extras" aria-labelledby="extras-title">
       <p class="extras-eyebrow" id="extras-title">Other Helpful Places</p>
       <p class="extras-intro">Not part of your 3 steps, but handy to have.</p>
+    <section class="extra tour" id="circle-tour" aria-labelledby="tour-title" data-section="circle_tour">
+      <div class="extra-head"><svg class="ico" aria-hidden="true"><use href="#i-compass"/></svg><h2 id="tour-title">Circle Tutorial</h2><span class="tour-badge" id="tour-badge"><svg class="ico" aria-hidden="true"><use href="#i-lock"/></svg><span>Locked</span></span></div>
+      <div id="tour-locked">
+        <p class="extra-sub">Unlocks once you’re in Circle. Finish Step 2 first.</p>
+        <div class="btn-row"><button type="button" class="btn btn-secondary" id="btn-tour-step2" data-jump="step-2"><svg class="ico" aria-hidden="true"><use href="#i-chevron-right"/></svg>Go to Step 2</button></div>
+      </div>
+      <div id="tour-open" hidden>
+        <p class="extra-sub">Navigating Circle: your first steps as a new member (about 5 minutes).</p>
+        <div class="tut-frame" id="tut-frame"><video id="tut-video" controls playsinline preload="none"></video></div>
+        <p class="inline-alert" id="tut-missing" hidden><svg class="ico" aria-hidden="true"><use href="#i-info"/></svg><span id="tut-missing-text">This video isn’t available right now. Please check back soon.</span></p>
+      </div>
+    </section>
     <section class="extra" id="zoom-section" aria-labelledby="zoom-title" data-section="zoom">
       <div class="extra-head"><svg class="ico" aria-hidden="true"><use href="#i-video"/></svg><h2 id="zoom-title">Find Your Zoom Link</h2></div>
             <div class="card" id="zoom-card">
@@ -1045,10 +1064,12 @@ table.adm .muted{color:var(--fg-subtle)}
   var STEP0_URL = "https://decentralized-masters.circle.so/c/0-videos";
   var PAGE_URL = "https://dmwn.vercel.app/";            // public URL of this page for the admin link builder; empty = current address
   var HUBSPOT_PORTAL = "44781526"; // admin console links contact ids to HubSpot records
-  var APP_VERSION = "22";           // shown in the admin console so you can confirm which build a device is running
+  var APP_VERSION = "25";           // shown in the admin console so you can confirm which build a device is running
   var CHAT_ENABLED = false;
   var VIDEO_URL = "videos/welcome.mp4";     // welcome video (file in the repo's videos folder). If it's missing, the video feature stays hidden.
   var VIDEO_POSTER = "videos/welcome.jpg";  // first frame shown while it loads
+  var TUTORIAL_URL = "videos/circle-tutorial.mp4";      // Circle tutorial video, unlocked after Step 2 = Yes
+  var TUTORIAL_POSTER = "videos/circle-tutorial.jpg";
   var BOOK_PROMPT_SECONDS = 45;    // "Did you finish booking?" pop-up, counted from when they start using the calendar        // Ask a Question (AI) paused. Set to true once ANTHROPIC_API_KEY is in Vercel.
 
   /* ===== Utils ===== */
@@ -1326,7 +1347,8 @@ table.adm .muted{color:var(--fg-subtle)}
   function change(mutator){
     var before = [stepDone(1), stepDone(2), stepDone(3)];
     mutator();
-    [1, 2, 3].forEach(function(n){ if (!before[n - 1] && stepDone(n)) { pulse(n); saveTip(); } });
+    [1, 2, 3].forEach(function(n){ if (!before[n - 1] && stepDone(n)) { pulse(n); saveTip(); if (n === 2) onTourUnlock(); } });
+    renderTour();
     save(); render(); updateProgress();
   }
   function encourage(id, msg){ var el = $(id); el.textContent = ''; setTimeout(function(){ el.textContent = msg; }, 30); }
@@ -1851,6 +1873,57 @@ table.adm .muted{color:var(--fg-subtle)}
   window.addEventListener('scroll', scheduleResume, { passive: true });
   window.addEventListener('resize', scheduleResume);
 
+  /* ===== Circle Tutorial video: locked until the member says they're in Circle (Step 2 = Yes).
+     The video source is only attached once unlocked, so it can't be played before. ===== */
+  var tut = $('#tut-video'), tutAvail = true, tutQuart = {}, tutLast = 0, tutWatched = 0;
+  function tourUnlocked(){ return state.answers.circle_access === 'yes'; }
+  function renderTour(){
+    var on = tourUnlocked(), sec = $('#circle-tour');
+    // The card always shows. If the video file can't be found, it says so instead of disappearing.
+    $('#tut-frame').hidden = !tutAvail;
+    $('#tut-missing').hidden = tutAvail;
+    $('#tut-missing-text').textContent = EMBED_OK ? 'This video isn’t available right now. Please check back soon.' : 'Preview only: the video plays on the live site (dmwn.vercel.app).';
+    sec.classList.toggle('unlocked', on);
+    $('#tour-locked').hidden = on;
+    $('#tour-open').hidden = !on;
+    $('#tour-badge span').textContent = on ? (state.tourDone ? 'Watched' : 'Unlocked') : 'Locked';
+    $('#tour-badge use').setAttribute('href', on ? (state.tourDone ? '#i-check' : '#i-play') : '#i-lock');
+    $('#btn-go-tour').hidden = !on;
+    if (on && !tut.getAttribute('src') && TUTORIAL_URL) { tut.setAttribute('poster', TUTORIAL_POSTER); tut.setAttribute('src', TUTORIAL_URL); }
+    if (!on && tut.getAttribute('src')) { tut.pause(); tut.removeAttribute('src'); tut.load(); }
+  }
+  function flushTut(reason){ if (tutWatched >= 1) track('tutorial_watch', reason, Math.round(tutWatched)); tutWatched = 0; }
+  tut.addEventListener('play', function(){ track('tutorial_play', null, Math.round(tut.currentTime)); });
+  tut.addEventListener('pause', function(){ if (!tut.ended) flushTut('pause'); });
+  tut.addEventListener('seeked', function(){ tutLast = tut.currentTime; });
+  tut.addEventListener('timeupdate', function(){
+    var t = tut.currentTime, dt = t - tutLast;
+    if (!tut.paused && dt > 0 && dt < 1.5) tutWatched += dt;
+    tutLast = t;
+    if (!tut.duration) return;
+    var pc = t / tut.duration * 100;
+    [25, 50, 75].forEach(function(q){ if (pc >= q && !tutQuart[q]) { tutQuart[q] = 1; track('tutorial_progress', 'q' + q, q); } });
+  });
+  tut.addEventListener('ended', function(){
+    flushTut('end');
+    track('tutorial_progress', 'q100', 100);
+    if (!state.tourDone) { state.tourDone = true; save(); track('tutorial_done'); }
+    renderTour();
+    toast('Nice. You know your way around Circle.');
+  });
+  tut.addEventListener('error', function(){ if (tut.getAttribute('src')) { track('tutorial_error'); tutAvail = false; renderTour(); } });
+  window.addEventListener('pagehide', function(){ if (!tut.paused) flushTut('left_page'); });
+  if (TUTORIAL_URL) {
+    try { fetch(TUTORIAL_URL, { method: 'HEAD', cache: 'no-store' }).then(function(r){ if (!r.ok) { tutAvail = false; renderTour(); } }, function(){}); } catch(e){}
+  }
+  function onTourUnlock(){
+    renderTour();
+    if (state.tourUnlockNoticed) return;
+    state.tourUnlockNoticed = true; save();
+    track('tutorial_unlocked');
+    setTimeout(function(){ toast('Unlocked: the Circle Tutorial video. Find it under Other Helpful Places.'); }, 1800);
+  }
+
   /* ===== Welcome video =====
      First visit: opens by itself and tries to play WITH sound. Browsers (all iPhones, most others)
      block sound until the visitor taps something, so if that's refused it plays muted with a big
@@ -1990,6 +2063,7 @@ table.adm .muted{color:var(--fg-subtle)}
     var light = document.documentElement.getAttribute('data-theme') === 'light';
     var r = [
       ['top', 'i-home', 'Back to the Top', 'Your checklist and progress'],
+      ['tour', tourUnlocked() ? 'i-compass' : 'i-lock', 'Circle Tutorial', tourUnlocked() ? 'A 5 minute video on using Circle' : 'Unlocks after Step 2 (Circle)'],
       ['video', 'i-film', 'Watch the Welcome Video', 'A quick hello before your next steps'],
       ['zoom', 'i-video', 'Find Your Zoom Link', 'Where your session invite is'],
       ['assistant', 'i-lifebuoy', 'Onboarding Assistant', 'Help with emails, links, and Zoom'],
@@ -2046,6 +2120,7 @@ table.adm .muted{color:var(--fg-subtle)}
         if (k === 'top') jump('hero');
         else if (k === 'zoom') jump('zoom-section');
         else if (k === 'video') openVideo('menu');
+        else if (k === 'tour') jump('circle-tour');
         else if (k === 'assistant') $('#out-tech-assistant').click();
         else if (k === 'save') openSave('menu');
         else if (k === 'chat') openChat('menu');
@@ -2309,7 +2384,11 @@ table.adm .muted{color:var(--fg-subtle)}
       vstats: (function(){
         var w = rows.filter(function(r){ return r.event === 'video_watch' && r.value != null; }), sk = rows.filter(function(r){ return r.event === 'video_skip' && r.value != null; });
         var sum = function(a){ return a.reduce(function(x, r){ return x + r.value; }, 0); };
-        return { watch_avg: w.length ? Math.round(sum(w) / w.length) : null, watch_total: sum(w), skip_avg: sk.length ? Math.round(sum(sk) / sk.length) : null };
+        var tw = rows.filter(function(r){ return r.event === 'tutorial_watch' && r.value != null; }), bySess = {};
+        tw.forEach(function(r){ bySess[r.session_id] = (bySess[r.session_id] || 0) + r.value; });
+        var ts = Object.keys(bySess).map(function(k){ return bySess[k]; });
+        return { watch_avg: w.length ? Math.round(sum(w) / w.length) : null, watch_total: sum(w), skip_avg: sk.length ? Math.round(sum(sk) / sk.length) : null,
+          tut_avg: ts.length ? Math.round(ts.reduce(function(a, b){ return a + b; }, 0) / ts.length) : null, tut_total: sum(tw) };
       })(),
       video: {
         opened: rows.filter(function(r){ return r.event === 'video_open'; }).length,
@@ -2435,6 +2514,18 @@ table.adm .muted{color:var(--fg-subtle)}
       cnt('Reopened a finished step', kC('step_expand'), navMax) +
       cnt('Switched to light colors', kT('theme_change', 'light'), navMax) +
       cnt('Switched to dark colors', kT('theme_change', 'dark'), navMax) + '</div>';
+    var tuU = kC('tutorial_unlocked'), tuP = kC('tutorial_play');
+    h += '<div class="adm-card"><h3>Circle Tutorial</h3><p class="sub">Video, unlocks after “Yes, I’m in” on Step 2</p>' +
+      '<p class="adm-stat"><b>' + dur(V.tut_avg) + '</b> average watch time per session, <b>' + dur(V.tut_total || 0) + '</b> watched in total.</p>' +
+      cnt('Unlocked', tuU, Math.max(tuU, 1)) +
+      bar('Pressed play', tuP, tuU) +
+      bar('Reached 25%', kT('tutorial_progress', 'q25'), tuU) +
+      bar('Reached 50%', kT('tutorial_progress', 'q50'), tuU) +
+      bar('Reached 75%', kT('tutorial_progress', 'q75'), tuU) +
+      bar('Watched to the end', kC('tutorial_done'), tuU) +
+      cnt('Opened from Step 2 button', kT('click', 'btn-go-tour'), Math.max(tuU, 1)) +
+      cnt('Locked card: Go to Step 2', kT('click', 'btn-tour-step2'), Math.max(tuU, 1)) +
+      cnt('Failed to load', kC('tutorial_error'), Math.max(tuU, 1)) + '</div>';
     var mailMax = Math.max(1, kTP('mail_app_open', ''));
     h += '<div class="adm-card"><h3>Email Shortcuts on Phones</h3><p class="sub">App opened vs browser, by provider</p>' +
       ['gmail', 'outlook', 'yahoo', 'aol'].map(function(k){ var nm = { gmail: 'Gmail', outlook: 'Outlook', yahoo: 'Yahoo', aol: 'AOL' }[k];
@@ -2583,6 +2674,7 @@ table.adm .muted{color:var(--fg-subtle)}
   track('page_open');
   setTimeout(handleReturn, 300); // came back with the Back button and the page reloaded
   setupVideo();
+  renderTour();
   foldDone(false); // return visits: finished steps start folded
   setTimeout(scheduleResume, 400);
   if (isReturn) setTimeout(function(){ toast('Welcome back. You’re ' + computeProgress() + '% of the way there.'); }, 500);
